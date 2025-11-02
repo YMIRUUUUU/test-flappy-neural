@@ -746,6 +746,30 @@ header p {
     background: var(--dark-secondary);
 }
 
+#tetrisNetworkCanvas {
+    border: 2px solid var(--dark-tertiary);
+    border-radius: 12px;
+    background: var(--dark);
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 15px;
+    width: 100%;
+    height: 200px;
+}
+
+#f1NetworkCanvas {
+    border: 2px solid var(--dark-tertiary);
+    border-radius: 12px;
+    background: var(--dark);
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 15px;
+    width: 100%;
+    height: 200px;
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */

@@ -209,6 +209,11 @@ class TetrisPlayer {
         this.fitness = 0;
         this.brain = brain ? brain.copy() : new NeuralNetwork(10, 16, 7, TETRIS_CONFIG.MUTATION_RATE, TETRIS_CONFIG.MUTATION_STRENGTH);
         this.gameOver = false;
+        this.lastThinkFrame = -1;
+        this.frameCount = 0;
+        this.isAI = false;
+        this.lastThoughtPiece = null;
+        this.decidedAction = null;
     }
 
     reset() {
@@ -219,6 +224,10 @@ class TetrisPlayer {
         this.alive = true;
         this.gameOver = false;
         this.fitness = 0;
+        this.lastThinkFrame = -1;
+        this.frameCount = 0;
+        this.lastThoughtPiece = null;
+        this.decidedAction = null;
         this.spawnPiece();
         this.spawnNext();
     }
@@ -238,23 +247,31 @@ class TetrisPlayer {
     dropPiece() {
         if (!this.currentPiece || this.gameOver) return;
         
-        this.currentPiece.y++;
-        if (!this.board.isValidPosition(this.currentPiece)) {
-            this.currentPiece.y--;
-            this.board.placePiece(this.currentPiece);
-            const linesCleared = this.board.clearLines();
-            if (linesCleared > 0) {
-                this.lines += linesCleared;
-                this.score += [0, 100, 300, 500, 800][linesCleared] * (this.level + 1);
-                this.level = Math.floor(this.lines / 10) + 1;
-            }
-            this.currentPiece = this.nextPiece;
-            this.currentPiece.x = Math.floor(TETRIS_CONFIG.COLS / 2) - 1;
-            this.currentPiece.y = 0;
-            this.spawnNext();
+        this.frameCount++;
+        
+        // Chute automatique plus lente en mode IA
+        const dropSpeed = this.isAI ? Math.max(10 - this.level, 3) : Math.max(15 - this.level * 2, 5);
+        
+        if (this.frameCount % dropSpeed === 0) {
+            this.currentPiece.y++;
             if (!this.board.isValidPosition(this.currentPiece)) {
-                this.gameOver = true;
-                this.alive = false;
+                this.currentPiece.y--;
+                this.board.placePiece(this.currentPiece);
+                const linesCleared = this.board.clearLines();
+                if (linesCleared > 0) {
+                    this.lines += linesCleared;
+                    this.score += [0, 100, 300, 500, 800][linesCleared] * (this.level + 1);
+                    this.level = Math.floor(this.lines / 10) + 1;
+                }
+                this.currentPiece = this.nextPiece;
+                this.currentPiece.x = Math.floor(TETRIS_CONFIG.COLS / 2) - 1;
+                this.currentPiece.y = 0;
+                this.spawnNext();
+                if (!this.board.isValidPosition(this.currentPiece)) {
+                    this.gameOver = true;
+                    this.alive = false;
+                }
+                this.frameCount = 0;
             }
         }
     }
@@ -298,60 +315,132 @@ class TetrisPlayer {
 
     think() {
         if (!this.currentPiece || this.gameOver) return;
+        
+        // Ne penser qu'une fois par pièce
+        if (this.currentPiece !== this.lastThoughtPiece) {
+            this.lastThoughtPiece = this.currentPiece;
+            this.decidedAction = null;
+        }
+        
+        // Si on a déjà décidé d'une action, l'exécuter
+        if (this.decidedAction) {
+            const action = this.decidedAction;
+            if (action.rotationsLeft > 0) {
+                this.rotate();
+                action.rotationsLeft--;
+                return;
+            }
+            if (action.movesLeft !== 0) {
+                if (action.movesLeft > 0) {
+                    this.moveRight();
+                    action.movesLeft--;
+                } else {
+                    this.moveLeft();
+                    action.movesLeft++;
+                }
+                return;
+            }
+            if (action.shouldDrop) {
+                this.hardDrop();
+                this.decidedAction = null;
+                this.lastThoughtPiece = null;
+                return;
+            }
+            
+            // Si toutes les actions sont terminées, drop
+            if (action.rotationsLeft === 0 && action.movesLeft === 0) {
+                action.shouldDrop = true;
+            }
+        }
 
-        // Calculer les features du board
+        // Calculer les features du board actuel
         const height = this.board.getHeight();
         const holes = this.board.getHoles();
         const bumpiness = this.board.getBumpiness();
         
-        // Features de la pièce actuelle
-        const pieceX = this.currentPiece.x;
-        const pieceY = this.currentPiece.y;
-        const pieceType = Object.keys(TETROMINOS).indexOf(this.currentPiece.type);
-        
-        // Calculer la distance au sol
-        let dropDistance = 0;
-        const testPiece = this.currentPiece.clone();
-        while (this.board.isValidPosition(testPiece, 0, 1)) {
-            testPiece.y++;
-            dropDistance++;
+        // Tester toutes les positions possibles et évaluer avec le réseau
+        let bestScore = -Infinity;
+        let bestAction = null;
+
+        // Tester différentes rotations
+        for (let rot = 0; rot < 4; rot++) {
+            const testPiece = this.currentPiece.clone();
+            for (let r = 0; r < rot; r++) {
+                testPiece.rotate();
+            }
+
+            // Tester différentes positions X
+            for (let x = -1; x <= TETRIS_CONFIG.COLS; x++) {
+                const testX = x;
+                testPiece.x = testX;
+                testPiece.y = 0;
+
+                // Trouver la position Y la plus basse valide
+                while (this.board.isValidPosition(testPiece, 0, 1)) {
+                    testPiece.y++;
+                }
+
+                // Créer un board de test
+                const testBoard = this.board.clone();
+                if (!this.board.isValidPosition(testPiece)) continue;
+                
+                testBoard.placePiece(testPiece);
+                const testLines = testBoard.clearLines();
+
+                // Calculer les features de la position testée
+                const testHeight = testBoard.getHeight();
+                const testHoles = testBoard.getHoles();
+                const testBumpiness = testBoard.getBumpiness();
+                
+                // Utiliser le réseau neuronal pour évaluer
+                const inputs = [
+                    testHeight / TETRIS_CONFIG.ROWS,
+                    testHoles / (TETRIS_CONFIG.COLS * TETRIS_CONFIG.ROWS),
+                    testBumpiness / (TETRIS_CONFIG.COLS * 10),
+                    testX / TETRIS_CONFIG.COLS,
+                    0, // Y n'est pas important une fois drop
+                    Object.keys(TETROMINOS).indexOf(testPiece.type) / Object.keys(TETROMINOS).length,
+                    0, // dropDistance
+                    (this.lines + testLines) / 100,
+                    Math.floor((this.lines + testLines) / 10) / 20,
+                    (TETRIS_CONFIG.COLS / 2 - testX) / TETRIS_CONFIG.COLS
+                ];
+                
+                const output = this.brain.predict(inputs);
+                const networkScore = output.reduce((sum, val) => sum + val, 0);
+                
+                // Score combiné: évaluation réseau + métriques classiques
+                let score = networkScore * 100 + testLines * 1000 - testHeight * 5 - testHoles * 100 - testBumpiness * 10;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestAction = {
+                        rotation: rot,
+                        x: testX
+                    };
+                }
+            }
         }
 
-        // Inputs du réseau
-        const inputs = [
-            height / TETRIS_CONFIG.ROWS,
-            holes / (TETRIS_CONFIG.COLS * TETRIS_CONFIG.ROWS),
-            bumpiness / (TETRIS_CONFIG.COLS * 10),
-            pieceX / TETRIS_CONFIG.COLS,
-            pieceY / TETRIS_CONFIG.ROWS,
-            pieceType / Object.keys(TETROMINOS).length,
-            dropDistance / TETRIS_CONFIG.ROWS,
-            this.lines / 100,
-            this.level / 20,
-            (TETRIS_CONFIG.COLS / 2 - pieceX) / TETRIS_CONFIG.COLS
-        ];
-
-        // Décision du réseau (7 outputs: gauche, droite, rotation, drop, wait, left+drop, right+drop)
-        const output = this.brain.predict(inputs);
-        
-        // Trouver l'action avec la plus forte probabilité
-        const actions = [
-            () => this.moveLeft(),
-            () => this.moveRight(),
-            () => this.rotate(),
-            () => this.hardDrop(),
-            () => {}, // wait
-            () => { this.moveLeft(); this.hardDrop(); },
-            () => { this.moveRight(); this.hardDrop(); }
-        ];
-
-        const maxIndex = output.indexOf(Math.max(...output));
-        if (maxIndex < actions.length) {
-            actions[maxIndex]();
+        // Programmer l'action
+        if (bestAction) {
+            const currentX = this.currentPiece.x;
+            const targetX = bestAction.x;
+            const diff = targetX - currentX;
+            
+            this.decidedAction = {
+                rotationsLeft: bestAction.rotation,
+                movesLeft: diff,
+                shouldDrop: false
+            };
+        } else {
+            // Si aucune action trouvée, juste drop
+            this.decidedAction = {
+                rotationsLeft: 0,
+                movesLeft: 0,
+                shouldDrop: true
+            };
         }
-
-        // Toujours descendre
-        this.dropPiece();
     }
 
     updateFitness() {
@@ -383,7 +472,9 @@ class TetrisPopulation {
         let aliveCount = 0;
         for (let player of this.players) {
             if (player.alive && !player.gameOver) {
+                player.isAI = true;
                 player.think();
+                player.dropPiece();
                 player.updateFitness();
                 if (player.fitness > this.bestFitness) {
                     this.bestFitness = player.fitness;
@@ -452,9 +543,11 @@ class TetrisGame {
         this.canvas = document.getElementById('tetrisCanvas');
         this.nextCanvas = document.getElementById('tetrisNextCanvas');
         this.previewCanvas = document.getElementById('tetrisPreviewCanvas');
+        this.networkCanvas = document.getElementById('tetrisNetworkCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.nextCtx = this.nextCanvas.getContext('2d');
         this.previewCtx = this.previewCanvas.getContext('2d');
+        this.networkCtx = this.networkCanvas ? this.networkCanvas.getContext('2d') : null;
         
         this.resizeCanvas();
         
@@ -480,6 +573,10 @@ class TetrisGame {
         this.nextCanvas.height = 120;
         this.previewCanvas.width = 300;
         this.previewCanvas.height = 300;
+        if (this.networkCanvas) {
+            this.networkCanvas.width = 800;
+            this.networkCanvas.height = 200;
+        }
     }
 
     setupEventListeners() {
@@ -624,7 +721,79 @@ class TetrisGame {
             const best = this.population.getBestPlayer();
             this.drawBoard(this.ctx, best.board, best.currentPiece);
             this.drawNext(best.nextPiece);
+            this.drawNetwork();
         }
+    }
+
+    drawNetwork() {
+        if (!this.networkCtx || !this.population) return;
+        
+        const ctx = this.networkCtx;
+        ctx.clearRect(0, 0, this.networkCanvas.width, this.networkCanvas.height);
+        
+        const best = this.population.getBestPlayer();
+        const network = best.brain;
+        const width = this.networkCanvas.width;
+        const height = this.networkCanvas.height;
+        
+        const layers = [
+            { size: network.inputSize, label: 'Input' },
+            { size: network.hiddenSize, label: 'Hidden' },
+            { size: network.outputSize, label: 'Output' }
+        ];
+        
+        const layerSpacing = width / (layers.length + 1);
+        const nodeRadius = 12;
+        
+        // Dessiner les connexions
+        for (let i = 0; i < layers[0].size; i++) {
+            for (let j = 0; j < layers[1].size; j++) {
+                const weight = network.weightsIH[j][i];
+                ctx.strokeStyle = weight > 0 ? `rgba(0, 255, 0, ${Math.abs(weight)})` : `rgba(255, 0, 0, ${Math.abs(weight)})`;
+                const x1 = layerSpacing;
+                const y1 = height / (layers[0].size + 1) * (i + 1);
+                const x2 = layerSpacing * 2;
+                const y2 = height / (layers[1].size + 1) * (j + 1);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+        
+        for (let i = 0; i < layers[1].size; i++) {
+            for (let j = 0; j < layers[2].size; j++) {
+                const weight = network.weightsHO[j][i];
+                ctx.strokeStyle = weight > 0 ? `rgba(0, 255, 0, ${Math.abs(weight)})` : `rgba(255, 0, 0, ${Math.abs(weight)})`;
+                const x1 = layerSpacing * 2;
+                const y1 = height / (layers[1].size + 1) * (i + 1);
+                const x2 = layerSpacing * 3;
+                const y2 = height / (layers[2].size + 1) * (j + 1);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+        
+        // Dessiner les neurones
+        layers.forEach((layer, layerIndex) => {
+            const x = layerSpacing * (layerIndex + 1);
+            const spacing = height / (layer.size + 1);
+            
+            for (let i = 0; i < layer.size; i++) {
+                const y = spacing * (i + 1);
+                
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        });
     }
 
     drawBoard(ctx, board, currentPiece) {
