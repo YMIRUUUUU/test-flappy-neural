@@ -3,66 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - IA Neuronale avec Algorithme Génétique</title>
+    <title>Jeux Neuronaux - IA et Algorithme Génétique</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="app-container">
         <header>
-            <h1>🐦 Flappy Bird Neural</h1>
+            <h1>🎮 Jeux Neuronaux</h1>
             <p>Apprentissage par algorithme génétique</p>
         </header>
 
-        <div class="game-wrapper">
-            <div class="controls">
-                <button id="startBtn" class="btn btn-primary">Démarrer</button>
-                <button id="modeBtn" class="btn btn-secondary">Mode IA</button>
-                <button id="speedBtn" class="btn btn-info">Vitesse: 1x</button>
-                <button id="saveBtn" class="btn btn-success">Sauvegarder IA</button>
-                <button id="loadBtn" class="btn btn-warning">Charger IA</button>
-            </div>
-
-            <canvas id="gameCanvas"></canvas>
-            <canvas id="networkCanvas"></canvas>
-
-            <div class="stats">
-                <div class="stat-item">
-                    <span class="label">Score:</span>
-                    <span id="score">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">Génération:</span>
-                    <span id="generation">1</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">Oiseaux vivants:</span>
-                    <span id="alive">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">Meilleur score:</span>
-                    <span id="bestScore">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">Meilleure fitness:</span>
-                    <span id="bestFitness">0</span>
-                </div>
-            </div>
-
-            <div id="gameOver" class="game-over hidden">
-                <h2>Game Over!</h2>
-                <p>Score final: <span id="finalScore">0</span></p>
-                <button id="restartBtn" class="btn btn-primary">Rejouer</button>
+        <!-- Onglets style Netflix -->
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="flappy">
+                    <span>🐦</span>
+                    <span>Flappy Bird</span>
+                </button>
+                <button class="tab-btn" data-tab="f1">
+                    <span>🏎️</span>
+                    <span>F1 Neural Racing</span>
+                </button>
             </div>
         </div>
 
-        <div class="instructions">
-            <h3>Instructions:</h3>
-            <p><strong>Mode Manuel:</strong> Cliquez ou appuyez sur l'écran pour faire sauter l'oiseau</p>
-            <p><strong>Mode IA:</strong> Laissez les réseaux neuronaux apprendre à jouer automatiquement</p>
-            <p>Les oiseaux évoluent à chaque génération grâce à l'algorithme génétique!</p>
+        <!-- Page Flappy Bird -->
+        <div id="flappy" class="game-page active">
+            <div class="game-wrapper">
+                <div class="controls">
+                    <button class="startBtn btn btn-primary">Démarrer</button>
+                    <button class="modeBtn btn btn-secondary">Mode IA</button>
+                    <button class="speedBtn btn btn-info">Vitesse: 1x</button>
+                    <button class="saveBtn btn btn-success">Sauvegarder IA</button>
+                    <button class="loadBtn btn btn-warning">Charger IA</button>
+                </div>
+
+                <canvas id="flappyCanvas"></canvas>
+                <canvas id="flappyNetworkCanvas"></canvas>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="label">Score:</span>
+                        <span class="flappy-score">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Génération:</span>
+                        <span class="flappy-generation">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Oiseaux vivants:</span>
+                        <span class="flappy-alive">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Meilleur score:</span>
+                        <span class="flappy-bestScore">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Meilleure fitness:</span>
+                        <span class="flappy-bestFitness">0</span>
+                    </div>
+                </div>
+
+                <div class="game-over hidden">
+                    <h2>Game Over!</h2>
+                    <p>Score final: <span class="flappy-finalScore">0</span></p>
+                    <button class="restartBtn btn btn-primary">Rejouer</button>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h3>Instructions:</h3>
+                <p><strong>Mode Manuel:</strong> Cliquez ou appuyez sur l'écran pour faire sauter l'oiseau</p>
+                <p><strong>Mode IA:</strong> Laissez les réseaux neuronaux apprendre à jouer automatiquement</p>
+                <p>Les oiseaux évoluent à chaque génération grâce à l'algorithme génétique!</p>
+            </div>
+        </div>
+
+        <!-- Page F1 Racing -->
+        <div id="f1" class="game-page">
+            <div class="f1-container">
+                <!-- Contrôles F1 -->
+                <div class="f1-controls">
+                    <div class="f1-controls-row">
+                        <button class="f1-buildBtn btn btn-primary">🏗️ Mode Construction</button>
+                        <button class="f1-trainBtn btn btn-secondary">🎓 Entraîner IA</button>
+                        <button class="f1-raceBtn btn btn-success">🏁 Course IA</button>
+                        <button class="f1-clearBtn btn btn-warning">🗑️ Effacer Circuit</button>
+                        <button class="f1-resetBtn btn btn-info">🔄 Réinitialiser</button>
+                    </div>
+                    <div class="f1-controls-row">
+                        <button class="f1-saveBtn btn btn-success">💾 Sauvegarder IA</button>
+                        <button class="f1-loadBtn btn btn-warning">📂 Charger IA</button>
+                        <button class="f1-speedBtn btn btn-info">⏩ Vitesse: 1x</button>
+                    </div>
+                </div>
+
+                <!-- Canvas principal pour le circuit et les voitures -->
+                <div class="f1-canvas-wrapper">
+                    <canvas id="f1Canvas"></canvas>
+                    <!-- Overlay pour l'éditeur -->
+                    <div id="f1EditorOverlay" class="editor-overlay hidden">
+                        <div class="editor-help">
+                            <h3>🏗️ Éditeur de Circuit</h3>
+                            <p>🎨 <strong>Dessinez:</strong> Cliquez et glissez pour dessiner les murs</p>
+                            <p>✏️ <strong>Effacer:</strong> Maintenez Shift + cliquez pour effacer</p>
+                            <p>🏁 <strong>Départ:</strong> Cliquez sur "Placer Départ" puis cliquez sur le circuit</p>
+                            <p>✅ <strong>Terminé:</strong> Cliquez sur "Terminer Construction" quand vous avez fini</p>
+                        </div>
+                        <div class="editor-tools">
+                            <button class="f1-placeStartBtn btn btn-primary">📍 Placer Départ</button>
+                            <button class="f1-finishBuildBtn btn btn-success">✅ Terminer Construction</button>
+                            <button class="f1-cancelBuildBtn btn btn-secondary">❌ Annuler</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats F1 -->
+                <div class="f1-stats">
+                    <div class="stat-item">
+                        <span class="label">Mode:</span>
+                        <span class="f1-mode">Construction</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Génération:</span>
+                        <span class="f1-generation">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Voitures vivantes:</span>
+                        <span class="f1-alive">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Meilleur temps:</span>
+                        <span class="f1-bestTime">--:--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Tours complets:</span>
+                        <span class="f1-laps">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Meilleure fitness:</span>
+                        <span class="f1-bestFitness">0</span>
+                    </div>
+                </div>
+
+                <!-- Classement course -->
+                <div id="f1Leaderboard" class="leaderboard hidden">
+                    <h3>🏁 Classement Course</h3>
+                    <div id="f1LeaderboardContent"></div>
+                </div>
+
+                <!-- Instructions F1 -->
+                <div class="instructions">
+                    <h3>Instructions F1 Neural Racing:</h3>
+                    <p><strong>🏗️ Construction:</strong> Dessinez votre circuit, placez la ligne de départ, puis entraînez les IA</p>
+                    <p><strong>🎓 Entraînement:</strong> 50 voitures apprennent à naviguer le circuit avec des réseaux neuronaux</p>
+                    <p><strong>🏁 Course:</strong> Faites s'affronter les meilleures IA dans une course complète</p>
+                    <p><strong>⚙️ Physique:</strong> Accélération, freinage, adhérence, et gestion des virages réalistes</p>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="common.js"></script>
+    <script src="flappy-game.js"></script>
+    <script src="f1-game.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
