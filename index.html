@@ -3,52 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird Neural Network</title>
+    <title>Flappy Bird - IA Neuronale avec Algorithme Génétique</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Flappy Bird Neural Network</h1>
-        
-        <div class="controls">
-            <button id="startBtn">Commencer</button>
-            <button id="modeBtn">Mode: Manuel</button>
-            <button id="speedBtn">Vitesse: x1</button>
-            <button id="resetBtn">Réinitialiser IA</button>
+        <header>
+            <h1>🐦 Flappy Bird Neural</h1>
+            <p>Apprentissage par algorithme génétique</p>
+        </header>
+
+        <div class="game-wrapper">
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">Démarrer</button>
+                <button id="modeBtn" class="btn btn-secondary">Mode IA</button>
+                <button id="speedBtn" class="btn btn-info">Vitesse: 1x</button>
+                <button id="saveBtn" class="btn btn-success">Sauvegarder IA</button>
+                <button id="loadBtn" class="btn btn-warning">Charger IA</button>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+            <canvas id="networkCanvas"></canvas>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Génération:</span>
+                    <span id="generation">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Oiseaux vivants:</span>
+                    <span id="alive">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Meilleur score:</span>
+                    <span id="bestScore">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Meilleure fitness:</span>
+                    <span id="bestFitness">0</span>
+                </div>
+            </div>
+
+            <div id="gameOver" class="game-over hidden">
+                <h2>Game Over!</h2>
+                <p>Score final: <span id="finalScore">0</span></p>
+                <button id="restartBtn" class="btn btn-primary">Rejouer</button>
+            </div>
         </div>
 
-        <div class="stats">
-            <div class="stat-item">
-                <span>Score:</span>
-                <span id="score">0</span>
-            </div>
-            <div class="stat-item">
-                <span>Meilleur Score:</span>
-                <span id="bestScore">0</span>
-            </div>
-            <div class="stat-item" id="aiStats" style="display: none;">
-                <span>Génération:</span>
-                <span id="generation">1</span>
-            </div>
-            <div class="stat-item" id="aiStats2" style="display: none;">
-                <span>Oiseaux Vivants:</span>
-                <span id="aliveCount">100</span>
-            </div>
-            <div class="stat-item" id="aiStats3" style="display: none;">
-                <span>Meilleur Fitness:</span>
-                <span id="bestFitness">0</span>
-            </div>
+        <div class="instructions">
+            <h3>Instructions:</h3>
+            <p><strong>Mode Manuel:</strong> Cliquez ou appuyez sur l'écran pour faire sauter l'oiseau</p>
+            <p><strong>Mode IA:</strong> Laissez les réseaux neuronaux apprendre à jouer automatiquement</p>
+            <p>Les oiseaux évoluent à chaque génération grâce à l'algorithme génétique!</p>
         </div>
-
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="gameOver" class="game-over hidden">
-            <h2>Game Over!</h2>
-            <p>Score: <span id="finalScore">0</span></p>
-            <button id="restartBtn">Rejouer</button>
-        </div>
-
-        <canvas id="networkCanvas" class="hidden"></canvas>
     </div>
 
     <script src="script.js"></script>
