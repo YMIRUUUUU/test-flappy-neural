@@ -70,7 +70,7 @@ body::before {
    HEADER MODERNE
    ============================================ */
 header {
-    background: var(--gradient-1);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #663399 100%);
     padding: 40px 30px;
     text-align: center;
     position: relative;
@@ -84,8 +84,31 @@ header::before {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%),
+                radial-gradient(circle at 50% 50%, rgba(102, 51, 153, 0.3) 0%, transparent 50%);
     animation: rotate 20s linear infinite;
+}
+
+header::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(102, 51, 153, 0.05) 10px,
+        rgba(102, 51, 153, 0.05) 20px
+    );
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
 }
 
 @keyframes rotate {
@@ -768,6 +791,40 @@ header p {
     margin-top: 15px;
     width: 100%;
     height: 200px;
+}
+
+#flappyChartCanvas, #f1ChartCanvas, #tetrisChartCanvas {
+    border: 2px solid var(--dark-tertiary);
+    border-radius: 12px;
+    background: var(--dark);
+    display: block;
+    max-width: 100%;
+    margin-top: 15px;
+    width: 100%;
+    height: 150px;
+}
+
+/* Animations pour notifications */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
 }
 
 /* ============================================
