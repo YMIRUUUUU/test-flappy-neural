@@ -1,3 +1,62 @@
-<html>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Neural</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <h1>Flappy Neural</h1>
+    <div class="controls">
+      <button id="startBtn">Démarrer</button>
+      <button id="restartBtn">Recommencer</button>
+      <button id="modeBtn">Mode IA</button>
+      <label for="speedSelect">Vitesse</label>
+      <select id="speedSelect">
+        <option value="1">x1</option>
+        <option value="2">x2</option>
+        <option value="5">x5</option>
+        <option value="10">x10</option>
+      </select>
+    </div>
+  </header>
 
+  <main class="layout">
+    <section class="game-panel">
+      <div class="stats">
+        <div>Score&nbsp;: <span id="score">0</span></div>
+        <div>Meilleur&nbsp;: <span id="bestScore">0</span></div>
+        <div>Génération&nbsp;: <span id="generation">-</span></div>
+        <div>Vivants&nbsp;: <span id="alive">-</span></div>
+      </div>
+      <canvas id="gameCanvas" width="640" height="480"></canvas>
+      <div id="gameOver" class="overlay hidden">
+        <div class="overlay-content">
+          <h2>Game Over</h2>
+          <p>Score&nbsp;: <span id="finalScore">0</span></p>
+          <button id="overlayRestart">Relancer</button>
+        </div>
+      </div>
+    </section>
+    <aside class="side-panel">
+      <h2>Réseau neuronal</h2>
+      <canvas id="networkCanvas" width="320" height="240"></canvas>
+      <h2>Progression des générations</h2>
+      <canvas id="chartCanvas" width="320" height="180"></canvas>
+      <div class="storage">
+        <button id="saveBrain">Sauvegarder le meilleur</button>
+        <button id="loadBrain">Charger le meilleur</button>
+        <button id="clearBrain">Effacer la sauvegarde</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <p>Contrôles&nbsp;: clic/toucher/espace pour sauter en mode manuel. L'IA apprend grâce à un algorithme génétique.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
 </html>
