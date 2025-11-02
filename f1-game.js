@@ -496,7 +496,9 @@ class F1Population {
 class F1Game {
     constructor() {
         this.canvas = document.getElementById('f1Canvas');
+        this.networkCanvas = document.getElementById('f1NetworkCanvas');
         this.ctx = this.canvas.getContext('2d');
+        this.networkCtx = this.networkCanvas ? this.networkCanvas.getContext('2d') : null;
         this.resizeCanvas();
         this.circuit = new CircuitEditor(this.canvas);
         this.population = null;
@@ -516,6 +518,10 @@ class F1Game {
         this.canvas.height = maxHeight;
         this.gameWidth = this.canvas.width;
         this.gameHeight = this.canvas.height;
+        if (this.networkCanvas) {
+            this.networkCanvas.width = maxWidth;
+            this.networkCanvas.height = 200;
+        }
     }
 
     setupEventListeners() {
@@ -540,10 +546,22 @@ class F1Game {
         f1Page.querySelector('.f1-cancelBuildBtn').addEventListener('click', () => this.cancelBuild());
 
         // Canvas events
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            this.handleMouseDown(e);
+        });
+        this.canvas.addEventListener('mousemove', (e) => {
+            e.preventDefault();
+            this.handleMouseMove(e);
+        });
+        this.canvas.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            this.handleMouseUp(e);
+        });
+        this.canvas.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleClick(e);
+        });
 
         window.addEventListener('resize', () => this.resizeCanvas());
     }
@@ -586,37 +604,62 @@ class F1Game {
     }
 
     handleClick(e) {
-        if (this.placingStart) {
+        if (this.placingStart && this.mode === 'build') {
             const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
             
-            // Calculer l'angle basé sur la position (orientation vers le haut par défaut)
-            // Trouver la direction la plus proche d'une route (si proche d'un mur)
+            // Vérifier qu'on ne clique pas sur un mur
+            let tooCloseToWall = false;
+            for (let wall of this.circuit.walls) {
+                const dist = this.circuit.distanceToLineSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
+                if (dist < 30) {
+                    tooCloseToWall = true;
+                    break;
+                }
+            }
+            
+            if (tooCloseToWall) {
+                alert('Placez la ligne de départ loin des murs!');
+                return;
+            }
+            
+            // Calculer l'angle - chercher le mur le plus proche pour s'orienter
             let angle = -Math.PI / 2; // Vers le haut par défaut
             
-            // Si on est près d'un mur, s'orienter perpendiculairement
             let closestWall = null;
             let minDist = Infinity;
             for (let wall of this.circuit.walls) {
                 const dist = this.circuit.distanceToLineSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
-                if (dist < 50 && dist < minDist) {
+                if (dist < 100 && dist < minDist) {
                     minDist = dist;
                     closestWall = wall;
                 }
             }
             
             if (closestWall) {
-                // Calculer l'angle perpendiculaire au mur
+                // Calculer l'angle perpendiculaire au mur (vers l'intérieur du circuit)
                 const dx = closestWall.x2 - closestWall.x1;
                 const dy = closestWall.y2 - closestWall.y1;
                 const wallAngle = Math.atan2(dy, dx);
-                angle = wallAngle + Math.PI / 2; // Perpendiculaire
+                
+                // Trouver de quel côté du mur on est
+                const wallNormalX = -dy;
+                const wallNormalY = dx;
+                const toPointX = x - closestWall.x1;
+                const toPointY = y - closestWall.y1;
+                const dot = toPointX * wallNormalX + toPointY * wallNormalY;
+                
+                // Choisir la direction perpendiculaire selon le côté
+                angle = dot > 0 ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
             }
             
             this.circuit.setStartLine(x, y, angle);
             this.placingStart = false;
-            this.canvas.style.cursor = 'crosshair';
+            this.canvas.style.cursor = 'default';
+            alert('Ligne de départ placée! Vous pouvez maintenant entraîner les IA.');
             this.draw();
         }
     }
@@ -757,6 +800,111 @@ class F1Game {
         // Dessiner les voitures
         if (this.population) {
             this.population.draw(this.ctx);
+        }
+        
+        // Dessiner le réseau neuronal si en mode train/race
+        if ((this.mode === 'train' || this.mode === 'race') && this.population) {
+            this.drawNetwork();
+        }
+    }
+
+    drawNetwork() {
+        if (!this.networkCtx || !this.population) return;
+        
+        const ctx = this.networkCtx;
+        ctx.clearRect(0, 0, this.networkCanvas.width, this.networkCanvas.height);
+        
+        // Trouver la meilleure voiture vivante
+        let bestCar = null;
+        let bestFitness = -1;
+        for (let car of this.population.cars) {
+            if (car.alive && car.fitness > bestFitness) {
+                bestFitness = car.fitness;
+                bestCar = car;
+            }
+        }
+        
+        if (!bestCar) return;
+        
+        const network = bestCar.brain;
+        const width = this.networkCanvas.width;
+        const height = this.networkCanvas.height;
+        
+        const layers = [
+            { size: network.inputSize, label: 'Sensors' },
+            { size: network.hiddenSize, label: 'Hidden' },
+            { size: network.outputSize, label: 'Output' }
+        ];
+        
+        const layerSpacing = width / (layers.length + 1);
+        const nodeRadius = 10;
+        
+        // Dessiner les connexions
+        for (let i = 0; i < layers[0].size; i++) {
+            for (let j = 0; j < layers[1].size; j++) {
+                const weight = network.weightsIH[j][i];
+                ctx.strokeStyle = weight > 0 ? `rgba(0, 255, 0, ${Math.abs(weight)})` : `rgba(255, 0, 0, ${Math.abs(weight)})`;
+                ctx.lineWidth = 1;
+                const x1 = layerSpacing;
+                const y1 = height / (layers[0].size + 1) * (i + 1);
+                const x2 = layerSpacing * 2;
+                const y2 = height / (layers[1].size + 1) * (j + 1);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+        
+        for (let i = 0; i < layers[1].size; i++) {
+            for (let j = 0; j < layers[2].size; j++) {
+                const weight = network.weightsHO[j][i];
+                ctx.strokeStyle = weight > 0 ? `rgba(0, 255, 0, ${Math.abs(weight)})` : `rgba(255, 0, 0, ${Math.abs(weight)})`;
+                ctx.lineWidth = 1;
+                const x1 = layerSpacing * 2;
+                const y1 = height / (layers[1].size + 1) * (i + 1);
+                const x2 = layerSpacing * 3;
+                const y2 = height / (layers[2].size + 1) * (j + 1);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+        
+        // Dessiner les neurones
+        layers.forEach((layer, layerIndex) => {
+            const x = layerSpacing * (layerIndex + 1);
+            const spacing = height / (layer.size + 1);
+            
+            for (let i = 0; i < layer.size; i++) {
+                const y = spacing * (i + 1);
+                
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        });
+        
+        // Labels
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        if (layers[0].size > 0) {
+            ctx.fillText('Capteurs', layerSpacing, 15);
+        }
+        if (layers[2].size > 0) {
+            const labels = ['Accél', 'Direction', 'Frein'];
+            labels.forEach((label, i) => {
+                if (i < layers[2].size) {
+                    ctx.fillText(label, layerSpacing * 3, height - 5 - (layers[2].size - i - 1) * spacing);
+                }
+            });
         }
     }
 
