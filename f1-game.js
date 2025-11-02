@@ -586,13 +586,37 @@ class F1Game {
     }
 
     handleClick(e) {
-        if (this.placingStart && this.mode === 'build') {
+        if (this.placingStart) {
             const rect = this.canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            this.circuit.setStartLine(x, y, 0);
+            
+            // Calculer l'angle basé sur la position (orientation vers le haut par défaut)
+            // Trouver la direction la plus proche d'une route (si proche d'un mur)
+            let angle = -Math.PI / 2; // Vers le haut par défaut
+            
+            // Si on est près d'un mur, s'orienter perpendiculairement
+            let closestWall = null;
+            let minDist = Infinity;
+            for (let wall of this.circuit.walls) {
+                const dist = this.circuit.distanceToLineSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
+                if (dist < 50 && dist < minDist) {
+                    minDist = dist;
+                    closestWall = wall;
+                }
+            }
+            
+            if (closestWall) {
+                // Calculer l'angle perpendiculaire au mur
+                const dx = closestWall.x2 - closestWall.x1;
+                const dy = closestWall.y2 - closestWall.y1;
+                const wallAngle = Math.atan2(dy, dx);
+                angle = wallAngle + Math.PI / 2; // Perpendiculaire
+            }
+            
+            this.circuit.setStartLine(x, y, angle);
             this.placingStart = false;
-            this.canvas.style.cursor = 'default';
+            this.canvas.style.cursor = 'crosshair';
             this.draw();
         }
     }
