@@ -6,38 +6,113 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     padding: 20px;
     color: #333;
 }
 
-.container {
+.app-container {
     background: white;
     border-radius: 15px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    padding: 20px;
-    max-width: 1200px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    max-width: 1400px;
     width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
 }
 
 header {
     text-align: center;
-    margin-bottom: 20px;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 header h1 {
-    color: #667eea;
     font-size: 2.5em;
     margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
 header p {
-    color: #666;
     font-size: 1.1em;
+    opacity: 0.9;
+}
+
+/* ============================================
+   ONGLETS STYLE NETFLIX
+   ============================================ */
+.tabs-container {
+    background: #1a1a2e;
+    padding: 0;
+    border-bottom: 2px solid #667eea;
+}
+
+.tabs {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    padding: 20px 40px;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    position: relative;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.tab-btn.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.tab-btn span:first-child {
+    font-size: 24px;
+}
+
+/* ============================================
+   PAGES DE JEU
+   ============================================ */
+.game-page {
+    display: none;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+.game-page.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .game-wrapper {
@@ -100,7 +175,8 @@ header p {
     color: white;
 }
 
-#gameCanvas {
+/* Canvas Flappy Bird */
+#flappyCanvas {
     border: 3px solid #667eea;
     border-radius: 10px;
     background: linear-gradient(to bottom, #87ceeb 0%, #98d8e8 50%, #d2b48c 50%, #8b7355 100%);
@@ -111,7 +187,7 @@ header p {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-#networkCanvas {
+#flappyNetworkCanvas {
     border: 2px solid #ccc;
     border-radius: 8px;
     background: #f8f9fa;
@@ -121,12 +197,30 @@ header p {
     margin-top: 10px;
 }
 
+/* Canvas F1 */
+#f1Canvas {
+    border: 3px solid #e53e3e;
+    border-radius: 10px;
+    background: #2d5016;
+    display: block;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    cursor: crosshair;
+}
+
+.f1-canvas-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
 .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
     width: 100%;
-    max-width: 800px;
+    max-width: 1200px;
     padding: 15px;
     background: #f8f9fa;
     border-radius: 10px;
@@ -184,17 +278,6 @@ header p {
     color: #333;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-}
-
 .instructions {
     margin-top: 20px;
     padding: 20px;
@@ -214,13 +297,135 @@ header p {
     line-height: 1.6;
 }
 
+/* ============================================
+   STYLES F1 RACING
+   ============================================ */
+.f1-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.f1-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.f1-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.f1-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+/* Éditeur de circuit */
+.editor-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 20px;
+}
+
+.editor-overlay.hidden {
+    display: none;
+}
+
+.editor-help {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    max-width: 500px;
+}
+
+.editor-help h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+}
+
+.editor-help p {
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.editor-tools {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Classement */
+.leaderboard {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+.leaderboard.hidden {
+    display: none;
+}
+
+.leaderboard h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-item.position {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #667eea;
+    min-width: 40px;
+}
+
+.leaderboard-item.name {
+    flex: 1;
+    margin-left: 15px;
+}
+
+.leaderboard-item.time {
+    font-weight: bold;
+    color: #38a169;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header h1 {
         font-size: 2em;
     }
 
-    .controls {
+    .controls, .f1-controls-row {
         flex-direction: column;
     }
 
@@ -228,21 +433,16 @@ header p {
         width: 100%;
     }
 
-    .stats {
+    .stats, .f1-stats {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    #gameCanvas, #networkCanvas {
+    #flappyCanvas, #flappyNetworkCanvas, #f1Canvas {
         width: 100%;
     }
-}
 
-/* Animation pour l'oiseau qui tourne */
-@keyframes rotate {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(-30deg);
+    .tab-btn {
+        padding: 15px 25px;
+        font-size: 14px;
     }
 }
