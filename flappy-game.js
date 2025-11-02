@@ -79,21 +79,62 @@ class Bird {
         const rotation = Math.min(this.velocity * 0.1, 0.5);
         ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
         ctx.rotate(rotation);
-        ctx.fillStyle = isBest ? '#FFD700' : '#FFD700';
-        ctx.strokeStyle = isBest ? '#FFA500' : '#FFA500';
-        ctx.lineWidth = 2;
+        
+        // Ombre
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(2, 2, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Corps avec gradient
+        const gradient = ctx.createRadialGradient(0, -5, 0, 0, 0, this.width / 2);
+        if (isBest) {
+            gradient.addColorStop(0, '#FFD700');
+            gradient.addColorStop(0.7, '#FFA500');
+            gradient.addColorStop(1, '#FF8C00');
+        } else {
+            gradient.addColorStop(0, '#FFEB3B');
+            gradient.addColorStop(0.7, '#FFC107');
+            gradient.addColorStop(1, '#FF9800');
+        }
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = isBest ? '#FF6F00' : '#FF8F00';
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+        
+        // Œil avec reflet
         ctx.fillStyle = '#000';
         ctx.beginPath();
         ctx.arc(5, -5, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = isBest ? '#FF8C00' : '#FFA500';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(6, -6, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Aile avec animation
+        const wingGradient = ctx.createLinearGradient(-10, 0, -5, 10);
+        wingGradient.addColorStop(0, isBest ? '#FF8C00' : '#FFA500');
+        wingGradient.addColorStop(1, isBest ? '#FF6F00' : '#FF8F00');
+        ctx.fillStyle = wingGradient;
         ctx.beginPath();
         ctx.ellipse(-8, 5, 10, 5, rotation * 2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Effet de brillance si meilleur
+        if (isBest) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(-3, -8, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
         ctx.restore();
     }
 
@@ -144,18 +185,61 @@ class Pipe {
     }
 
     draw(ctx, gameHeight = FLAPPY_CONFIG.CANVAS_HEIGHT) {
-        ctx.fillStyle = '#228B22';
-        ctx.strokeStyle = '#006400';
-        ctx.lineWidth = 3;
+        // Tuyau du haut avec gradient
+        const topGradient = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
+        topGradient.addColorStop(0, '#228B22');
+        topGradient.addColorStop(0.5, '#32CD32');
+        topGradient.addColorStop(1, '#228B22');
+        ctx.fillStyle = topGradient;
         ctx.fillRect(this.x, 0, this.width, this.y);
+        
+        // Bordure du haut
+        ctx.strokeStyle = '#006400';
+        ctx.lineWidth = 4;
         ctx.strokeRect(this.x, 0, this.width, this.y);
+        
+        // Cap du haut
+        ctx.fillStyle = '#32CD32';
+        ctx.fillRect(this.x - 5, this.y - 25, this.width + 10, 25);
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(this.x - 3, this.y - 23, this.width + 6, 15);
+        
+        // Tuyau du bas avec gradient
         const bottomY = this.y + this.gap;
         const bottomHeight = gameHeight - 80 - bottomY;
+        const bottomGradient = ctx.createLinearGradient(this.x, bottomY, this.x + this.width, bottomY + bottomHeight);
+        bottomGradient.addColorStop(0, '#228B22');
+        bottomGradient.addColorStop(0.5, '#32CD32');
+        bottomGradient.addColorStop(1, '#228B22');
+        ctx.fillStyle = bottomGradient;
         ctx.fillRect(this.x, bottomY, this.width, bottomHeight);
+        
+        // Bordure du bas
+        ctx.strokeStyle = '#006400';
+        ctx.lineWidth = 4;
         ctx.strokeRect(this.x, bottomY, this.width, bottomHeight);
+        
+        // Cap du bas
         ctx.fillStyle = '#32CD32';
-        ctx.fillRect(this.x - 5, this.y - 20, this.width + 10, 20);
-        ctx.fillRect(this.x - 5, this.y + this.gap, this.width + 10, 20);
+        ctx.fillRect(this.x - 5, bottomY, this.width + 10, 25);
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(this.x - 3, bottomY + 8, this.width + 6, 15);
+        
+        // Lignes de texture
+        ctx.strokeStyle = 'rgba(0, 100, 0, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 5; i < this.y; i += 10) {
+            ctx.beginPath();
+            ctx.moveTo(this.x + 5, i);
+            ctx.lineTo(this.x + this.width - 5, i);
+            ctx.stroke();
+        }
+        for (let i = bottomY + 5; i < bottomY + bottomHeight; i += 10) {
+            ctx.beginPath();
+            ctx.moveTo(this.x + 5, i);
+            ctx.lineTo(this.x + this.width - 5, i);
+            ctx.stroke();
+        }
     }
 }
 
@@ -357,6 +441,7 @@ class FlappyGame {
         this.pipes = [];
         this.frameCount = 0;
         this.nextPipeTime = 0;
+        this.cloudOffset = 0;
         if (this.gameMode === 'manual') {
             this.bird = new Bird(100, this.gameHeight / 2);
         } else {
@@ -452,23 +537,80 @@ class FlappyGame {
     draw() {
         if (window.tabManager?.currentTab !== 'flappy') return;
         this.ctx.clearRect(0, 0, this.gameWidth, this.gameHeight);
+        
+        // Ciel avec gradient animé
+        const skyGradient = this.ctx.createLinearGradient(0, 0, 0, this.gameHeight - 80);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(0.3, '#98D8E8');
+        skyGradient.addColorStop(0.6, '#B0E0E6');
+        skyGradient.addColorStop(0.7, '#F0E68C');
+        skyGradient.addColorStop(0.75, '#D2B48C');
+        this.ctx.fillStyle = skyGradient;
+        this.ctx.fillRect(0, 0, this.gameWidth, this.gameHeight - 80);
+        
+        // Nuages
+        this.drawClouds();
+        
+        // Sol avec texture
         const groundY = this.gameHeight - 80;
-        this.ctx.fillStyle = '#8B7355';
+        const groundGradient = this.ctx.createLinearGradient(0, groundY, 0, this.gameHeight);
+        groundGradient.addColorStop(0, '#8B7355');
+        groundGradient.addColorStop(1, '#654321');
+        this.ctx.fillStyle = groundGradient;
         this.ctx.fillRect(0, groundY, this.gameWidth, 80);
-        this.ctx.fillStyle = '#654321';
+        
+        // Texture du sol
+        this.ctx.fillStyle = 'rgba(101, 67, 33, 0.5)';
         for (let x = 0; x < this.gameWidth; x += 20) {
             this.ctx.fillRect(x, groundY, 10, 5);
         }
+        this.ctx.fillStyle = 'rgba(139, 115, 85, 0.3)';
+        for (let x = 10; x < this.gameWidth; x += 20) {
+            this.ctx.fillRect(x, groundY + 5, 10, 5);
+        }
+        
+        // Bordure du sol
+        this.ctx.strokeStyle = '#654321';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, groundY);
+        this.ctx.lineTo(this.gameWidth, groundY);
+        this.ctx.stroke();
+        
+        // Dessiner les tuyaux
         for (let pipe of this.pipes) {
             pipe.draw(this.ctx, this.gameHeight);
         }
+        
+        // Dessiner l'oiseau(s)
         if (this.gameMode === 'manual' && this.bird) {
             this.bird.draw(this.ctx);
         } else if (this.gameMode === 'ai' && this.population) {
             this.population.draw(this.ctx);
         }
+        
+        // Réseau neuronal
         if (this.gameMode === 'ai' && this.population) {
             this.drawNetwork();
+        }
+    }
+
+    drawClouds() {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        const clouds = [
+            { x: (this.frameCount * 0.5) % (this.gameWidth + 100) - 50, y: 50, size: 60 },
+            { x: (this.frameCount * 0.3) % (this.gameWidth + 150) - 50, y: 100, size: 80 },
+            { x: (this.frameCount * 0.4) % (this.gameWidth + 120) - 50, y: 150, size: 70 }
+        ];
+        
+        for (let cloud of clouds) {
+            this.ctx.beginPath();
+            this.ctx.arc(cloud.x, cloud.y, cloud.size * 0.5, 0, Math.PI * 2);
+            this.ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.6, 0, Math.PI * 2);
+            this.ctx.arc(cloud.x + cloud.size * 1.2, cloud.y, cloud.size * 0.5, 0, Math.PI * 2);
+            this.ctx.arc(cloud.x + cloud.size * 0.3, cloud.y - cloud.size * 0.3, cloud.size * 0.4, 0, Math.PI * 2);
+            this.ctx.arc(cloud.x + cloud.size * 0.9, cloud.y - cloud.size * 0.3, cloud.size * 0.4, 0, Math.PI * 2);
+            this.ctx.fill();
         }
     }
 

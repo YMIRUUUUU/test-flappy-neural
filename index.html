@@ -22,7 +22,11 @@
                 </button>
                 <button class="tab-btn" data-tab="f1">
                     <span>🏎️</span>
-                    <span>F1 Neural Racing</span>
+                    <span>F1 Racing</span>
+                </button>
+                <button class="tab-btn" data-tab="tetris">
+                    <span>🎮</span>
+                    <span>Tetris</span>
                 </button>
             </div>
         </div>
@@ -162,11 +166,85 @@
                 </div>
             </div>
         </div>
+
+        <!-- Page Tetris -->
+        <div id="tetris" class="game-page">
+            <div class="tetris-container">
+                <div class="tetris-controls">
+                    <div class="tetris-controls-row">
+                        <button class="tetris-startBtn btn btn-primary">▶️ Démarrer</button>
+                        <button class="tetris-modeBtn btn btn-secondary">Mode IA</button>
+                        <button class="tetris-speedBtn btn btn-info">⏩ Vitesse: 1x</button>
+                        <button class="tetris-pauseBtn btn btn-warning">⏸️ Pause</button>
+                        <button class="tetris-resetBtn btn btn-danger">🔄 Réinitialiser</button>
+                    </div>
+                    <div class="tetris-controls-row">
+                        <button class="tetris-saveBtn btn btn-success">💾 Sauvegarder IA</button>
+                        <button class="tetris-loadBtn btn btn-warning">📂 Charger IA</button>
+                    </div>
+                </div>
+
+                <div class="tetris-game-area">
+                    <canvas id="tetrisCanvas"></canvas>
+                    <div class="tetris-sidebar">
+                        <div class="tetris-next">
+                            <h4>Prochain</h4>
+                            <canvas id="tetrisNextCanvas"></canvas>
+                        </div>
+                        <div class="tetris-preview">
+                            <canvas id="tetrisPreviewCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tetris-stats">
+                    <div class="stat-item">
+                        <span class="label">Score:</span>
+                        <span class="tetris-score">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Lignes:</span>
+                        <span class="tetris-lines">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Niveau:</span>
+                        <span class="tetris-level">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Génération:</span>
+                        <span class="tetris-generation">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">IA actives:</span>
+                        <span class="tetris-alive">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">Meilleur score:</span>
+                        <span class="tetris-bestScore">0</span>
+                    </div>
+                </div>
+
+                <div class="game-over hidden">
+                    <h2>Game Over!</h2>
+                    <p>Score final: <span class="tetris-finalScore">0</span></p>
+                    <button class="tetris-restartBtn btn btn-primary">Rejouer</button>
+                </div>
+
+                <div class="instructions">
+                    <h3>Instructions Tetris Neural:</h3>
+                    <p><strong>🎮 Mode Manuel:</strong> Utilisez les flèches (←→ pour déplacer, ↑ pour rotation, ↓ pour descendre, Espace pour drop)</p>
+                    <p><strong>🤖 Mode IA:</strong> Les réseaux neuronaux apprennent à jouer automatiquement</p>
+                    <p><strong>🧠 Algorithme:</strong> Évolution génétique avec sélection des meilleures stratégies</p>
+                    <p><strong>📊 Objectif:</strong> Éliminer le maximum de lignes et obtenir le meilleur score</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="common.js"></script>
     <script src="flappy-game.js"></script>
     <script src="f1-game.js"></script>
+    <script src="tetris-game.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
