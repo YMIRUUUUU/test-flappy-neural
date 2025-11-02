@@ -441,6 +441,19 @@ class F1Population {
             newCars.push(new F1Car(this.startX, this.startY, this.startAngle, childBrain));
         }
         
+        // Enregistrer pour graphique
+        const avgFitness = this.cars.reduce((sum, c) => sum + c.fitness, 0) / this.cars.length;
+        const bestFitness = this.cars[0].fitness;
+        if (window.f1Game && window.f1Game.chart) {
+            window.f1Game.chart.addData(this.generation, bestFitness, avgFitness);
+        }
+        
+        // Enregistrer score
+        if (window.features && window.features.ScoreHistory) {
+            const bestLaps = Math.max(...this.cars.map(c => c.laps));
+            window.features.ScoreHistory.addScore('f1', bestLaps, this.generation);
+        }
+        
         this.cars = newCars;
         this.generation++;
         this.bestFitness = 0;
@@ -507,6 +520,8 @@ class F1Game {
         this.speed = 1;
         this.frameCount = 0;
         this.placingStart = false;
+        this.chartCanvas = document.getElementById('f1ChartCanvas');
+        this.chart = this.chartCanvas ? new EvolutionChart('f1ChartCanvas') : null;
         this.setupEventListeners();
         this.initStats();
     }
@@ -522,6 +537,10 @@ class F1Game {
             this.networkCanvas.width = maxWidth;
             this.networkCanvas.height = 200;
         }
+        if (this.chartCanvas) {
+            this.chartCanvas.width = maxWidth;
+            this.chartCanvas.height = 150;
+        }
     }
 
     setupEventListeners() {
@@ -535,42 +554,60 @@ class F1Game {
         f1Page.querySelector('.f1-resetBtn').addEventListener('click', () => this.reset());
         f1Page.querySelector('.f1-saveBtn').addEventListener('click', () => this.saveBestNetwork());
         f1Page.querySelector('.f1-loadBtn').addEventListener('click', () => this.loadBestNetwork());
+        f1Page.querySelector('.f1-exportBtn').addEventListener('click', () => this.exportNetwork());
         f1Page.querySelector('.f1-speedBtn').addEventListener('click', () => this.toggleSpeed());
 
         // Éditeur
         f1Page.querySelector('.f1-placeStartBtn').addEventListener('click', () => {
-            this.placingStart = true;
-            this.canvas.style.cursor = 'crosshair';
+            if (this.mode === 'build') {
+                this.placingStart = true;
+                this.canvas.style.cursor = 'crosshair';
+                alert('Cliquez sur le canvas pour placer la ligne de départ');
+            }
         });
         f1Page.querySelector('.f1-finishBuildBtn').addEventListener('click', () => this.finishBuild());
         f1Page.querySelector('.f1-cancelBuildBtn').addEventListener('click', () => this.cancelBuild());
 
-        // Canvas events
+        // Canvas events - utilisation de {passive: false} pour preventDefault
         this.canvas.addEventListener('mousedown', (e) => {
-            e.preventDefault();
+            if (!this.placingStart) {
+                e.preventDefault();
+            }
             this.handleMouseDown(e);
-        });
+        }, {passive: false});
+        
         this.canvas.addEventListener('mousemove', (e) => {
-            e.preventDefault();
+            if (!this.placingStart && this.circuit.isDrawing) {
+                e.preventDefault();
+            }
             this.handleMouseMove(e);
-        });
+        }, {passive: false});
+        
         this.canvas.addEventListener('mouseup', (e) => {
-            e.preventDefault();
+            if (!this.placingStart) {
+                e.preventDefault();
+            }
             this.handleMouseUp(e);
-        });
+        }, {passive: false});
+        
         this.canvas.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.handleClick(e);
-        });
+            if (this.placingStart) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleClick(e);
+            }
+        }, {passive: false});
 
         window.addEventListener('resize', () => this.resizeCanvas());
     }
 
     handleMouseDown(e) {
-        if (this.mode !== 'build') return;
+        if (this.mode !== 'build' || this.placingStart) return;
         const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
         
         if (e.shiftKey) {
             this.circuit.erase(x, y);
@@ -580,10 +617,12 @@ class F1Game {
     }
 
     handleMouseMove(e) {
-        if (this.mode !== 'build') return;
+        if (this.mode !== 'build' || this.placingStart) return;
         const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
         
         if (this.circuit.isDrawing) {
             this.circuit.updateDrawing(x, y);
@@ -592,10 +631,12 @@ class F1Game {
     }
 
     handleMouseUp(e) {
-        if (this.mode !== 'build') return;
+        if (this.mode !== 'build' || this.placingStart) return;
         const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
         
         if (!e.shiftKey) {
             this.circuit.endDrawing(x, y);
@@ -604,26 +645,31 @@ class F1Game {
     }
 
     handleClick(e) {
-        if (this.placingStart && this.mode === 'build') {
+        // PRIORITÉ ABSOLUE: Si on est en mode placement, gérer ça d'abord
+        if (this.placingStart) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
             const rect = this.canvas.getBoundingClientRect();
             const scaleX = this.canvas.width / rect.width;
             const scaleY = this.canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const x = Math.max(0, Math.min(this.canvas.width, (e.clientX - rect.left) * scaleX));
+            const y = Math.max(0, Math.min(this.canvas.height, (e.clientY - rect.top) * scaleY));
             
             // Vérifier qu'on ne clique pas sur un mur
             let tooCloseToWall = false;
             for (let wall of this.circuit.walls) {
                 const dist = this.circuit.distanceToLineSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
-                if (dist < 30) {
+                if (dist < 40) {
                     tooCloseToWall = true;
                     break;
                 }
             }
             
             if (tooCloseToWall) {
-                alert('Placez la ligne de départ loin des murs!');
-                return;
+                console.log('Trop proche d\'un mur, distance:', dist);
+                return; // Silencieux, juste ne rien faire
             }
             
             // Calculer l'angle - chercher le mur le plus proche pour s'orienter
@@ -633,34 +679,42 @@ class F1Game {
             let minDist = Infinity;
             for (let wall of this.circuit.walls) {
                 const dist = this.circuit.distanceToLineSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
-                if (dist < 100 && dist < minDist) {
+                if (dist < 150 && dist < minDist) {
                     minDist = dist;
                     closestWall = wall;
                 }
             }
             
             if (closestWall) {
-                // Calculer l'angle perpendiculaire au mur (vers l'intérieur du circuit)
                 const dx = closestWall.x2 - closestWall.x1;
                 const dy = closestWall.y2 - closestWall.y1;
                 const wallAngle = Math.atan2(dy, dx);
-                
-                // Trouver de quel côté du mur on est
                 const wallNormalX = -dy;
                 const wallNormalY = dx;
                 const toPointX = x - closestWall.x1;
                 const toPointY = y - closestWall.y1;
                 const dot = toPointX * wallNormalX + toPointY * wallNormalY;
-                
-                // Choisir la direction perpendiculaire selon le côté
                 angle = dot > 0 ? wallAngle + Math.PI / 2 : wallAngle - Math.PI / 2;
             }
             
+            // Placer la ligne de départ
             this.circuit.setStartLine(x, y, angle);
             this.placingStart = false;
             this.canvas.style.cursor = 'default';
-            alert('Ligne de départ placée! Vous pouvez maintenant entraîner les IA.');
+            
+            // Feedback visuel
+            const btn = document.querySelector('#f1 .f1-placeStartBtn');
+            if (btn) {
+                btn.textContent = '✅ Départ placé';
+                btn.disabled = true;
+                setTimeout(() => {
+                    btn.textContent = '📍 Placer Départ';
+                    btn.disabled = false;
+                }, 2000);
+            }
+            
             this.draw();
+            return false;
         }
     }
 
@@ -995,14 +1049,22 @@ class F1Game {
     loadBestNetwork() {
         const saved = localStorage.getItem('f1BestNetwork');
         if (!saved) {
-            alert('Aucun réseau sauvegardé trouvé!');
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Aucun réseau sauvegardé trouvé!', 'error');
+            } else {
+                alert('Aucun réseau sauvegardé trouvé!');
+            }
             return;
         }
         try {
             const data = JSON.parse(saved);
             const network = NeuralNetwork.deserialize(data);
             if (!this.circuit.startLine) {
-                alert('Créez d\'abord un circuit!');
+                if (window.features && window.features.NotificationSystem) {
+                    window.features.NotificationSystem.show('Créez d\'abord un circuit!', 'error');
+                } else {
+                    alert('Créez d\'abord un circuit!');
+                }
                 return;
             }
             this.population = new F1Population(
@@ -1017,9 +1079,43 @@ class F1Game {
                     this.population.cars[i].brain.mutate();
                 }
             }
-            alert('Réseau chargé avec succès!');
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Réseau chargé avec succès!', 'success');
+            } else {
+                alert('Réseau chargé avec succès!');
+            }
         } catch (e) {
-            alert('Erreur lors du chargement: ' + e.message);
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Erreur: ' + e.message, 'error');
+            } else {
+                alert('Erreur lors du chargement: ' + e.message);
+            }
+        }
+    }
+
+    exportNetwork() {
+        if (!this.population || !this.population.allTimeBest) {
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Aucun réseau à exporter!', 'error');
+            } else {
+                alert('Aucun réseau à exporter. Entraînez d\'abord les IA!');
+            }
+            return;
+        }
+        if (window.features && window.features.NetworkExporter) {
+            window.features.NetworkExporter.exportNetwork(
+                this.population.allTimeBest,
+                'f1',
+                {
+                    generation: this.population.generation,
+                    bestFitness: this.population.bestFitness
+                }
+            );
+            if (window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Réseau exporté!', 'success');
+            }
+        } else {
+            alert('Fonctionnalité d\'export non disponible');
         }
     }
 

@@ -214,6 +214,7 @@ class TetrisPlayer {
         this.isAI = false;
         this.lastThoughtPiece = null;
         this.decidedAction = null;
+        this.thinkingDone = false;
     }
 
     reset() {
@@ -228,6 +229,7 @@ class TetrisPlayer {
         this.frameCount = 0;
         this.lastThoughtPiece = null;
         this.decidedAction = null;
+        this.thinkingDone = false;
         this.spawnPiece();
         this.spawnNext();
     }
@@ -247,31 +249,66 @@ class TetrisPlayer {
     dropPiece() {
         if (!this.currentPiece || this.gameOver) return;
         
+        // En mode IA, ne pas faire de drop automatique si une action est en cours
+        if (this.isAI && this.decidedAction && !this.decidedAction.dropped) {
+            return;
+        }
+        
         this.frameCount++;
         
-        // Chute automatique plus lente en mode IA
-        const dropSpeed = this.isAI ? Math.max(10 - this.level, 3) : Math.max(15 - this.level * 2, 5);
+        // Chute automatique - plus rapide en mode IA une fois l'action terminée
+        const dropSpeed = this.isAI ? 2 : Math.max(15 - this.level * 2, 5);
         
         if (this.frameCount % dropSpeed === 0) {
             this.currentPiece.y++;
             if (!this.board.isValidPosition(this.currentPiece)) {
                 this.currentPiece.y--;
-                this.board.placePiece(this.currentPiece);
-                const linesCleared = this.board.clearLines();
-                if (linesCleared > 0) {
-                    this.lines += linesCleared;
-                    this.score += [0, 100, 300, 500, 800][linesCleared] * (this.level + 1);
-                    this.level = Math.floor(this.lines / 10) + 1;
-                }
-                this.currentPiece = this.nextPiece;
-                this.currentPiece.x = Math.floor(TETRIS_CONFIG.COLS / 2) - 1;
-                this.currentPiece.y = 0;
-                this.spawnNext();
-                if (!this.board.isValidPosition(this.currentPiece)) {
+                
+                // S'assurer que la pièce est bien positionnée avant placement
+                if (this.board.isValidPosition(this.currentPiece)) {
+                    this.board.placePiece(this.currentPiece);
+                    const linesCleared = this.board.clearLines();
+                    if (linesCleared > 0) {
+                        this.lines += linesCleared;
+                        this.score += [0, 100, 300, 500, 800][linesCleared] * (this.level + 1);
+                        this.level = Math.floor(this.lines / 10) + 1;
+                        
+                        // Effet particules sur ligne complétée
+                        if (window.tetrisGame && window.tetrisGame.particles) {
+                            const centerX = TETRIS_CONFIG.COLS * TETRIS_CONFIG.BLOCK_SIZE / 2;
+                            const centerY = TETRIS_CONFIG.ROWS * TETRIS_CONFIG.BLOCK_SIZE / 2;
+                            for (let i = 0; i < 20; i++) {
+                                window.tetrisGame.particles.addParticle(
+                                    centerX,
+                                    centerY,
+                                    `hsl(${Math.random() * 360}, 70%, 50%)`,
+                                    {
+                                        x: (Math.random() - 0.5) * 10,
+                                        y: (Math.random() - 0.5) * 10
+                                    },
+                                    30
+                                );
+                            }
+                        }
+                    }
+                    this.currentPiece = this.nextPiece;
+                    if (this.currentPiece) {
+                        this.currentPiece.x = Math.floor(TETRIS_CONFIG.COLS / 2) - 1;
+                        this.currentPiece.y = 0;
+                        this.spawnNext();
+                        if (!this.board.isValidPosition(this.currentPiece)) {
+                            this.gameOver = true;
+                            this.alive = false;
+                        }
+                    }
+                } else {
+                    // Si position invalide, game over
                     this.gameOver = true;
                     this.alive = false;
                 }
                 this.frameCount = 0;
+                this.decidedAction = null;
+                this.lastThoughtPiece = null;
             }
         }
     }
@@ -320,36 +357,43 @@ class TetrisPlayer {
         if (this.currentPiece !== this.lastThoughtPiece) {
             this.lastThoughtPiece = this.currentPiece;
             this.decidedAction = null;
+            this.thinkingDone = false;
         }
         
         // Si on a déjà décidé d'une action, l'exécuter
         if (this.decidedAction) {
             const action = this.decidedAction;
+            
+            // Exécuter rotations
             if (action.rotationsLeft > 0) {
                 this.rotate();
                 action.rotationsLeft--;
-                return;
+                return; // Sortir pour laisser le temps à la rotation
             }
+            
+            // Exécuter déplacements
             if (action.movesLeft !== 0) {
                 if (action.movesLeft > 0) {
-                    this.moveRight();
+                    if (this.board.isValidPosition(this.currentPiece, 1, 0)) {
+                        this.moveRight();
+                    }
                     action.movesLeft--;
                 } else {
-                    this.moveLeft();
+                    if (this.board.isValidPosition(this.currentPiece, -1, 0)) {
+                        this.moveLeft();
+                    }
                     action.movesLeft++;
                 }
-                return;
+                return; // Sortir pour laisser le temps au mouvement
             }
-            if (action.shouldDrop) {
+            
+            // Drop quand tout est prêt
+            if (action.rotationsLeft === 0 && action.movesLeft === 0 && !action.dropped) {
                 this.hardDrop();
+                action.dropped = true;
                 this.decidedAction = null;
                 this.lastThoughtPiece = null;
                 return;
-            }
-            
-            // Si toutes les actions sont terminées, drop
-            if (action.rotationsLeft === 0 && action.movesLeft === 0) {
-                action.shouldDrop = true;
             }
         }
 
@@ -431,15 +475,14 @@ class TetrisPlayer {
             this.decidedAction = {
                 rotationsLeft: bestAction.rotation,
                 movesLeft: diff,
-                shouldDrop: false
+                dropped: false
             };
+            this.thinkingDone = true;
         } else {
-            // Si aucune action trouvée, juste drop
-            this.decidedAction = {
-                rotationsLeft: 0,
-                movesLeft: 0,
-                shouldDrop: true
-            };
+            // Si aucune action trouvée, juste drop immédiatement
+            this.hardDrop();
+            this.decidedAction = null;
+            this.lastThoughtPiece = null;
         }
     }
 
@@ -473,8 +516,15 @@ class TetrisPopulation {
         for (let player of this.players) {
             if (player.alive && !player.gameOver) {
                 player.isAI = true;
+                
+                // En mode IA, l'IA contrôle tout - pense puis exécute les actions
                 player.think();
-                player.dropPiece();
+                
+                // DropPiece seulement si aucune action programmée ou action terminée
+                if (!player.decidedAction || (player.decidedAction.dropped && !player.decidedAction.rotationsLeft && !player.decidedAction.movesLeft)) {
+                    player.dropPiece();
+                }
+                
                 player.updateFitness();
                 if (player.fitness > this.bestFitness) {
                     this.bestFitness = player.fitness;
@@ -494,6 +544,12 @@ class TetrisPopulation {
         
         if (!this.allTimeBest || this.players[0].fitness > this.allTimeBest.fitness) {
             this.allTimeBest = this.players[0].brain.copy();
+        }
+        
+        // Enregistrer score
+        if (window.features && window.features.ScoreHistory) {
+            const bestScore = Math.max(...this.players.map(p => p.score));
+            window.features.ScoreHistory.addScore('tetris', bestScore, this.generation);
         }
 
         const newPlayers = [];
@@ -544,6 +600,7 @@ class TetrisGame {
         this.nextCanvas = document.getElementById('tetrisNextCanvas');
         this.previewCanvas = document.getElementById('tetrisPreviewCanvas');
         this.networkCanvas = document.getElementById('tetrisNetworkCanvas');
+        this.chartCanvas = document.getElementById('tetrisChartCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.nextCtx = this.nextCanvas.getContext('2d');
         this.previewCtx = this.previewCanvas.getContext('2d');
@@ -560,6 +617,8 @@ class TetrisGame {
         this.frameCount = 0;
         this.dropInterval = 60;
         this.keys = {};
+        this.chart = this.chartCanvas ? new EvolutionChart('tetrisChartCanvas') : null;
+        this.particles = new ParticleSystem();
         
         this.setupEventListeners();
         this.initStats();
@@ -577,6 +636,10 @@ class TetrisGame {
             this.networkCanvas.width = 800;
             this.networkCanvas.height = 200;
         }
+        if (this.chartCanvas) {
+            this.chartCanvas.width = 800;
+            this.chartCanvas.height = 150;
+        }
     }
 
     setupEventListeners() {
@@ -591,6 +654,8 @@ class TetrisGame {
         tetrisPage.querySelector('.tetris-restartBtn').addEventListener('click', () => this.restart());
         tetrisPage.querySelector('.tetris-saveBtn').addEventListener('click', () => this.saveBestNetwork());
         tetrisPage.querySelector('.tetris-loadBtn').addEventListener('click', () => this.loadBestNetwork());
+        tetrisPage.querySelector('.tetris-exportBtn').addEventListener('click', () => this.exportNetwork());
+        tetrisPage.querySelector('.theme-toggle').addEventListener('click', () => this.toggleTheme());
 
         document.addEventListener('keydown', (e) => {
             if (window.tabManager?.currentTab !== 'tetris') return;
@@ -678,15 +743,40 @@ class TetrisGame {
                     }
                 }
             } else if (this.gameMode === 'ai' && this.population) {
+                // Mettre à jour tous les joueurs
                 const aliveCount = this.population.update();
                 
-                if (this.population.allDead()) {
+                // Vérifier si vraiment tous morts avant évolution
+                let allReallyDead = true;
+                for (let p of this.population.players) {
+                    if (p.alive && !p.gameOver) {
+                        allReallyDead = false;
+                        break;
+                    }
+                }
+                
+                if (allReallyDead && this.population.players.length > 0) {
                     this.population.evolve();
-                    this.population.players.forEach(p => p.reset());
+                    this.population.players.forEach(p => {
+                        p.reset();
+                        p.isAI = true;
+                    });
+                    
+                    // Mettre à jour le graphique
+                    if (this.chart && this.population) {
+                        const avg = this.population.players.reduce((sum, p) => sum + p.fitness, 0) / this.population.players.length;
+                        const best = Math.max(...this.population.players.map(p => p.fitness));
+                        this.chart.addData(this.population.generation, best, avg);
+                    }
                 }
                 
                 this.updateStats();
             }
+        }
+        
+        // Mettre à jour les particules
+        if (this.particles) {
+            this.particles.update();
         }
     }
 
@@ -722,6 +812,11 @@ class TetrisGame {
             this.drawBoard(this.ctx, best.board, best.currentPiece);
             this.drawNext(best.nextPiece);
             this.drawNetwork();
+        }
+        
+        // Dessiner les particules
+        if (this.particles) {
+            this.particles.draw(this.ctx);
         }
     }
 
@@ -978,7 +1073,11 @@ class TetrisGame {
     loadBestNetwork() {
         const saved = localStorage.getItem('tetrisBestNetwork');
         if (!saved) {
-            alert('Aucun réseau sauvegardé trouvé!');
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Aucun réseau sauvegardé trouvé!', 'error');
+            } else {
+                alert('Aucun réseau sauvegardé trouvé!');
+            }
             return;
         }
         try {
@@ -992,12 +1091,60 @@ class TetrisGame {
                         this.population.players[i].brain.mutate();
                     }
                 }
-                alert('Réseau chargé avec succès!');
+                if (window.features && window.features.NotificationSystem) {
+                    window.features.NotificationSystem.show('Réseau chargé avec succès!', 'success');
+                } else {
+                    alert('Réseau chargé avec succès!');
+                }
             } else {
-                alert('Chargement réussi! Changez en mode IA pour l\'utiliser.');
+                if (window.features && window.features.NotificationSystem) {
+                    window.features.NotificationSystem.show('Changez en mode IA pour l\'utiliser', 'info', 2000);
+                } else {
+                    alert('Chargement réussi! Changez en mode IA pour l\'utiliser.');
+                }
             }
         } catch (e) {
-            alert('Erreur lors du chargement: ' + e.message);
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Erreur: ' + e.message, 'error');
+            } else {
+                alert('Erreur lors du chargement: ' + e.message);
+            }
+        }
+    }
+
+    exportNetwork() {
+        if (!this.population || !this.population.allTimeBest) {
+            if (window.features && window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Aucun réseau à exporter!', 'error');
+            } else {
+                alert('Aucun réseau à exporter. Lancez d\'abord le mode IA!');
+            }
+            return;
+        }
+        if (window.features && window.features.NetworkExporter) {
+            window.features.NetworkExporter.exportNetwork(
+                this.population.allTimeBest,
+                'tetris',
+                {
+                    generation: this.population.generation,
+                    bestFitness: this.population.bestFitness
+                }
+            );
+            if (window.features.NotificationSystem) {
+                window.features.NotificationSystem.show('Réseau exporté!', 'success');
+            }
+        }
+    }
+
+    toggleTheme() {
+        if (window.features && window.features.ThemeManager) {
+            const themes = ['dark', 'light', 'neon'];
+            const current = window.features.ThemeManager.currentTheme;
+            const nextIndex = (themes.indexOf(current) + 1) % themes.length;
+            window.features.ThemeManager.setTheme(themes[nextIndex]);
+            if (window.features.NotificationSystem) {
+                window.features.NotificationSystem.show(`Thème: ${themes[nextIndex]}`, 'info', 2000);
+            }
         }
     }
 

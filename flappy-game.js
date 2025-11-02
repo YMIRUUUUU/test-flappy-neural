@@ -288,11 +288,17 @@ class FlappyPopulation {
             this.allTimeBest = this.birds[0].brain.copy();
         }
         const avgFitness = this.birds.reduce((sum, b) => sum + b.fitness, 0) / this.birds.length;
+        const bestFitness = this.birds[0].fitness;
         this.fitnessHistory.push({
             generation: this.generation,
-            best: this.birds[0].fitness,
+            best: bestFitness,
             average: avgFitness
         });
+        
+        // Sauvegarder le meilleur score
+        if (window.features && window.features.ScoreHistory) {
+            window.features.ScoreHistory.addScore('flappy', Math.max(...this.birds.map(b => b.score)), this.generation);
+        }
         const newBirds = [];
         newBirds.push(new Bird(100, this.gameHeight / 2, this.birds[0].brain.copy()));
         while (newBirds.length < this.size) {
@@ -345,6 +351,7 @@ class FlappyGame {
     constructor() {
         this.canvas = document.getElementById('flappyCanvas');
         this.networkCanvas = document.getElementById('flappyNetworkCanvas');
+        this.chartCanvas = document.getElementById('flappyChartCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.networkCtx = this.networkCanvas.getContext('2d');
         this.resizeCanvas();
@@ -359,6 +366,7 @@ class FlappyGame {
         this.nextPipeTime = 0;
         this.audioContext = null;
         this.sounds = {};
+        this.chart = this.chartCanvas ? new EvolutionChart('flappyChartCanvas') : null;
         this.initSounds();
         this.setupEventListeners();
         this.initStats();
@@ -373,6 +381,10 @@ class FlappyGame {
         this.gameHeight = this.canvas.height;
         this.networkCanvas.width = maxWidth;
         this.networkCanvas.height = 150;
+        if (this.chartCanvas) {
+            this.chartCanvas.width = maxWidth;
+            this.chartCanvas.height = 150;
+        }
     }
 
     initSounds() {
@@ -529,6 +541,13 @@ class FlappyGame {
                     this.nextPipeTime = 0;
                 }
                 this.score = Math.max(...this.population.birds.map(b => b.score));
+                
+                // Mettre à jour le graphique
+                if (this.chart && this.population.fitnessHistory.length > 0) {
+                    const last = this.population.fitnessHistory[this.population.fitnessHistory.length - 1];
+                    this.chart.addData(last.generation, last.best, last.average);
+                }
+                
                 this.updateStats();
             }
         }
